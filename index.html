@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="ja"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>やること帳</title>
+<meta name="theme-color" content="#2c4699">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="やること帳">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<style>html{-webkit-text-size-adjust:100%}body{margin:0}</style>
+</head><body>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Zen+Old+Mincho:wght@700&display=swap">
+<style>
+/* Layout: one narrow notebook column — date eyebrow, title, quick-add, then tasks grouped by deadline */
+:root {
+  --bg: #f2f3f7;
+  --surface: #ffffff;
+  --ink: #1c2232;
+  --muted: #646d84;
+  --line: #dce0ea;
+  --accent: #2c4699;
+  --accent-soft: #e3e8f6;
+  --danger: #b93a33;
+  --danger-soft: #f8e4e2;
+  --warn: #9a6512;
+  --warn-soft: #f6ecd9;
+  --ok: #2a7553;
+  --font-display: "Zen Old Mincho", "Hiragino Mincho ProN", "Yu Mincho", serif;
+  --font-body: "Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11141b; --surface: #191e28; --ink: #e5e8ef; --muted: #959db1; --line: #2a3140;
+    --accent: #93a9f2; --accent-soft: #222b44; --danger: #ef7d74; --danger-soft: #3a2223;
+    --warn: #e2ac5e; --warn-soft: #362b1a; --ok: #6cc59a; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11141b; --surface: #191e28; --ink: #e5e8ef; --muted: #959db1; --line: #2a3140;
+  --accent: #93a9f2; --accent-soft: #222b44; --danger: #ef7d74; --danger-soft: #3a2223;
+  --warn: #e2ac5e; --warn-soft: #362b1a; --ok: #6cc59a; color-scheme: dark;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.6;
+  padding: 0 16px;
+  padding-block: 40px 96px;
+}
+.wrap { max-width: 680px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px; }
+
+header { display: flex; flex-direction: column; gap: 6px; }
+.eyebrow { font-family: var(--font-mono); font-size: 12.5px; color: var(--muted); letter-spacing: .04em; }
+h1 { font-family: var(--font-display); font-size: 34px; line-height: 1.2; margin: 0; letter-spacing: .04em; text-wrap: balance; }
+.stats { display: flex; flex-wrap: wrap; gap: 6px 18px; color: var(--muted); font-size: 13.5px; }
+.stats b { font-family: var(--font-mono); font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; margin-left: 4px; }
+.stats .alert b { color: var(--danger); }
+
+form.add {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px;
+}
+form.add input[type="text"] { flex: 1 1 260px; min-width: 0; }
+.field {
+  font: inherit; color: var(--ink); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 7px; padding: 8px 10px; min-height: 40px;
+}
+.field:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+input[type="date"].field { font-family: var(--font-mono); font-size: 13.5px; }
+.btn-primary {
+  font: inherit; font-weight: 700; border: 0; border-radius: 7px; padding: 8px 18px; min-height: 40px;
+  background: var(--accent); color: var(--surface); cursor: pointer;
+}
+.btn-primary:disabled { opacity: .5; cursor: default; }
+
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); }
+.tabs button {
+  font: inherit; font-size: 14px; background: none; border: 0; color: var(--muted); cursor: pointer;
+  padding: 8px 12px; border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.tabs button[aria-selected="true"] { color: var(--ink); font-weight: 700; border-bottom-color: var(--accent); }
+.tabs .n { font-family: var(--font-mono); font-size: 12px; margin-left: 4px; color: var(--muted); }
+
+.groups { display: flex; flex-direction: column; gap: 26px; }
+.group h2 {
+  font-size: 12px; font-weight: 700; letter-spacing: .12em; color: var(--muted);
+  margin: 0 0 6px; display: flex; gap: 8px; align-items: baseline;
+}
+.group h2 .n { font-family: var(--font-mono); font-weight: 400; letter-spacing: 0; }
+.group.overdue h2 { color: var(--danger); }
+ul.tasks { list-style: none; margin: 0; padding: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+li.task { display: flex; align-items: flex-start; gap: 12px; padding: 11px 12px; border-top: 1px solid var(--line); }
+li.task:first-child { border-top: 0; }
+
+.check {
+  flex: none; width: 22px; height: 22px; margin-top: 1px; border-radius: 50%;
+  border: 1.5px solid var(--muted); background: transparent; cursor: pointer; padding: 0;
+  display: grid; place-items: center; color: var(--surface);
+}
+.check:hover { border-color: var(--accent); }
+.task.done .check { background: var(--ok); border-color: var(--ok); }
+.check svg { width: 12px; height: 12px; display: none; }
+.task.done .check svg { display: block; }
+
+.body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.title { overflow-wrap: anywhere; cursor: text; }
+.task.done .title { color: var(--muted); text-decoration: line-through; }
+.title-edit { width: 100%; padding: 4px 8px; min-height: 0; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12.5px; color: var(--muted); }
+.due { font-family: var(--font-mono); font-size: 12px; padding: 1px 7px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
+.due.over { background: var(--danger-soft); color: var(--danger); }
+.due.today { background: var(--warn-soft); color: var(--warn); }
+.prio { display: inline-flex; align-items: center; gap: 5px; }
+.prio::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+.prio.high { color: var(--danger); } .prio.high::before { background: var(--danger); }
+.prio.low::before { background: transparent; border: 1px solid var(--muted); width: 5px; height: 5px; }
+
+.del {
+  flex: none; font: inherit; font-size: 12.5px; color: var(--muted); background: none; border: 0;
+  padding: 2px 6px; border-radius: 5px; cursor: pointer; opacity: 0;
+}
+li.task:hover .del, .del:focus-visible { opacity: 1; }
+.del:hover { color: var(--danger); background: var(--danger-soft); }
+@media (hover: none) { .del { opacity: 1; } }
+
+.empty { text-align: center; color: var(--muted); padding: 40px 16px; border: 1px dashed var(--line); border-radius: 10px; }
+.empty strong { display: block; color: var(--ink); font-size: 16px; margin-bottom: 4px; }
+.note { font-size: 12.5px; color: var(--muted); }
+
+.toast {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  background: var(--ink); color: var(--bg); border-radius: 8px; padding: 10px 14px;
+  display: flex; gap: 14px; align-items: center; font-size: 14px; max-width: calc(100% - 32px);
+}
+.toast button { font: inherit; font-weight: 700; background: none; border: 0; color: var(--accent-soft); cursor: pointer; padding: 0; }
+
+@media (max-width: 480px) {
+  body { padding-block: 24px 96px; }
+  h1 { font-size: 28px; }
+  form.add .field, form.add .btn-primary { flex: 1 1 auto; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  li.task { transition: background-color .15s; }
+}
+.backup { display: flex; flex-wrap: wrap; gap: 8px; }
+.backup button { font: inherit; font-size: 13px; color: var(--muted); background: none; border: 1px solid var(--line); border-radius: 7px; padding: 6px 12px; min-height: 36px; cursor: pointer; }
+.backup button:hover { color: var(--ink); border-color: var(--muted); }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow" id="today"></div>
+    <h1>やること帳</h1>
+    <div class="stats" id="stats"></div>
+  </header>
+
+  <form class="add" id="addForm" autocomplete="off">
+    <input class="field" type="text" id="newTitle" placeholder="やることを入力（例：請求書を送る）" aria-label="タスク名" maxlength="200" required>
+    <input class="field" type="date" id="newDue" aria-label="期限">
+    <select class="field" id="newPrio" aria-label="優先度">
+      <option value="mid">優先度：中</option>
+      <option value="high">優先度：高</option>
+      <option value="low">優先度：低</option>
+    </select>
+    <button class="btn-primary" type="submit" id="addBtn" disabled>追加</button>
+  </form>
+
+  <div class="tabs" role="tablist" id="tabs">
+    <button role="tab" id="tab-active" data-f="active" aria-selected="true">未完了<span class="n"></span></button>
+    <button role="tab" id="tab-due" data-f="due" aria-selected="false">今日まで<span class="n"></span></button>
+    <button role="tab" id="tab-done" data-f="done" aria-selected="false">完了済み<span class="n"></span></button>
+  </div>
+
+  <div class="groups" id="groups">
+    <div class="empty"><strong>タスクを読み込んでいます…</strong>少しお待ちください。</div>
+  </div>
+  <p class="note" id="note" hidden></p>
+  <div class="backup">
+    <button type="button" id="exportBtn">バックアップを書き出す</button>
+    <button type="button" id="importBtn">バックアップから復元</button>
+    <input type="file" id="importFile" accept="application/json,.json" hidden>
+  </div>
+</div>
+<div class="toast" id="toast" hidden><span id="toastMsg"></span><button type="button" id="toastUndo">元に戻す</button></div>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const pad = (n) => String(n).padStart(2, "0");
+  const WD = ["日", "月", "火", "水", "木", "金", "土"];
+  const PRIO_RANK = { high: 0, mid: 1, low: 2 };
+  const PRIO_LABEL = { high: "高", mid: "中", low: "低" };
+
+  function ymd(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+  function parseYmd(s) { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); }
+  function dayDiff(s) { const t = new Date(); t.setHours(0, 0, 0, 0); return Math.round((parseYmd(s) - t) / 86400000); }
+  function dueLabel(s) {
+    const n = dayDiff(s);
+    if (n === 0) return "今日";
+    if (n === 1) return "明日";
+    if (n === -1) return "昨日（超過）";
+    if (n < 0) return (-n) + "日超過";
+    const d = parseYmd(s);
+    return (d.getMonth() + 1) + "/" + d.getDate() + "(" + WD[d.getDay()] + ")";
+  }
+
+  const now = new Date();
+  $("today").textContent = now.getFullYear() + "年" + (now.getMonth() + 1) + "月" + now.getDate() + "日（" + WD[now.getDay()] + "）";
+
+  let tasks = [];
+  let backend = null;
+  let filter = "active";
+  let editingId = null;
+  try { const f = localStorage.getItem("yarukoto-filter"); if (f) filter = f; } catch (e) {}
+
+  /* ---------- storage backends ---------- */
+  function localBackend() {
+    const KEY = "yarukoto-tasks";
+    let list = [];
+    try { list = JSON.parse(localStorage.getItem(KEY) || "[]"); } catch (e) { list = []; }
+    let cb = () => {};
+    const save = () => { try { localStorage.setItem(KEY, JSON.stringify(list)); } catch (e) {} cb(list.slice()); };
+    return {
+      subscribe(fn) { cb = fn; fn(list.slice()); },
+      async add(data) { list.push({ id: "t" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), ...data }); save(); },
+      async update(id, patch) { list = list.map((t) => (t.id === id ? { ...t, ...patch } : t)); save(); },
+      async remove(id) { list = list.filter((t) => t.id !== id); save(); },
+      async restore(id, data) { list.push({ id, ...data }); save(); },
+      async replaceAll(next) { list = next; save(); },
+    };
+  }
+  async function init() {
+    backend = localBackend();
+    showNote("タスクはこの端末のブラウザ内に保存されます。機種変更や端末の初期化に備えて、ときどきバックアップを書き出してください。");
+    $("addBtn").disabled = false;
+    backend.subscribe((list) => { tasks = list; render(); });
+  }
+
+  function showNote(msg) { $("note").textContent = msg; $("note").hidden = false; }
+
+  async function run(p) {
+    try { await p; }
+    catch (e) { toast("保存できませんでした。閲覧のみの権限か、接続が不安定な可能性があります。", null); }
+  }
+
+  /* ---------- rendering ---------- */
+  function sortActive(a, b) {
+    if (a.due && b.due && a.due !== b.due) return a.due < b.due ? -1 : 1;
+    if (!!a.due !== !!b.due) return a.due ? -1 : 1;
+    const p = (PRIO_RANK[a.priority] ?? 1) - (PRIO_RANK[b.priority] ?? 1);
+    return p || (a.createdAt || 0) - (b.createdAt || 0);
+  }
+
+  function render() {
+    const today = ymd(new Date());
+    const active = tasks.filter((t) => !t.done);
+    const done = tasks.filter((t) => t.done).sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0));
+    const overdue = active.filter((t) => t.due && t.due < today).sort(sortActive);
+    const dueToday = active.filter((t) => t.due === today).sort(sortActive);
+    const upcoming = active.filter((t) => t.due && t.due > today).sort(sortActive);
+    const noDate = active.filter((t) => !t.due).sort(sortActive);
+
+    const stats = $("stats");
+    stats.replaceChildren();
+    const stat = (label, n, cls) => { const s = document.createElement("span"); if (cls) s.className = cls; s.textContent = label; const b = document.createElement("b"); b.textContent = n; s.append(b); stats.append(s); };
+    stat("未完了", active.length);
+    stat("今日が期限", dueToday.length);
+    stat("期限切れ", overdue.length, overdue.length ? "alert" : "");
+
+    const counts = { active: active.length, due: overdue.length + dueToday.length, done: done.length };
+    document.querySelectorAll("#tabs button").forEach((b) => {
+      b.setAttribute("aria-selected", String(b.dataset.f === filter));
+      b.querySelector(".n").textContent = counts[b.dataset.f];
+    });
+
+    let groups;
+    if (filter === "done") groups = [["完了", done, "done"]];
+    else if (filter === "due") groups = [["期限切れ", overdue, "overdue"], ["今日", dueToday, "today"]];
+    else groups = [["期限切れ", overdue, "overdue"], ["今日", dueToday, "today"], ["これから", upcoming, "upcoming"], ["期限なし", noDate, "nodate"]];
+    groups = groups.filter((g) => g[1].length);
+
+    const root = $("groups");
+    root.replaceChildren();
+    if (!groups.length) {
+      const e = document.createElement("div");
+      e.className = "empty";
+      const s = document.createElement("strong");
+      if (!tasks.length) { s.textContent = "まだタスクがありません"; e.append(s, "上の入力欄にやることを書いて「追加」を押すと、ここに並びます。"); }
+      else if (filter === "done") { s.textContent = "完了したタスクはまだありません"; e.append(s, "丸いボタンを押すとタスクを完了にできます。"); }
+      else if (filter === "due") { s.textContent = "今日までのタスクはありません"; e.append(s, "期限切れと今日が期限のタスクがここに表示されます。"); }
+      else { s.textContent = "すべて完了しました"; e.append(s, "お疲れさまでした。"); }
+      root.append(e);
+      return;
+    }
+    for (const [label, list, cls] of groups) {
+      const sec = document.createElement("section");
+      sec.className = "group " + cls;
+      const h = document.createElement("h2");
+      h.textContent = label;
+      const n = document.createElement("span"); n.className = "n"; n.textContent = list.length;
+      h.append(n);
+      const ul = document.createElement("ul"); ul.className = "tasks";
+      list.forEach((t) => ul.append(row(t, today)));
+      sec.append(h, ul);
+      root.append(sec);
+    }
+  }
+
+  function row(t, today) {
+    const li = document.createElement("li");
+    li.className = "task" + (t.done ? " done" : "");
+
+    const chk = document.createElement("button");
+    chk.className = "check"; chk.type = "button";
+    chk.setAttribute("aria-label", t.done ? "未完了に戻す" : "完了にする");
+    chk.innerHTML = '<svg viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 6.2l2.6 2.6L10 3.4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    chk.onclick = () => run(backend.update(t.id, t.done ? { done: false, doneAt: null } : { done: true, doneAt: Date.now() }));
+
+    const body = document.createElement("div"); body.className = "body";
+    if (editingId === t.id) {
+      const inp = document.createElement("input");
+      inp.className = "field title-edit"; inp.id = "edit-" + t.id; inp.value = t.title; inp.maxLength = 200;
+      inp.setAttribute("aria-label", "タスク名を編集");
+      let finished = false;
+      const finish = (save) => {
+        if (finished) return; finished = true;
+        editingId = null;
+        const v = inp.value.trim();
+        if (save && v && v !== t.title) run(backend.update(t.id, { title: v }));
+        render();
+      };
+      inp.onkeydown = (e) => { if (e.key === "Enter" && !e.isComposing) finish(true); if (e.key === "Escape") finish(false); };
+      inp.onblur = () => finish(true);
+      body.append(inp);
+      setTimeout(() => { inp.focus(); inp.select(); }, 0);
+    } else {
+      const title = document.createElement("div");
+      title.className = "title"; title.textContent = t.title; title.title = "クリックして編集";
+      title.tabIndex = 0;
+      title.onclick = () => { editingId = t.id; render(); };
+      title.onkeydown = (e) => { if (e.key === "Enter") { editingId = t.id; render(); } };
+      body.append(title);
+    }
+
+    const meta = document.createElement("div"); meta.className = "meta";
+    if (t.due) {
+      const d = document.createElement("span");
+      d.className = "due" + (!t.done && t.due < today ? " over" : !t.done && t.due === today ? " today" : "");
+      d.textContent = t.done ? t.due.replaceAll("-", "/") : dueLabel(t.due);
+      meta.append(d);
+    }
+    const p = document.createElement("span");
+    p.className = "prio " + (t.priority || "mid");
+    p.textContent = "優先度 " + (PRIO_LABEL[t.priority] || "中");
+    meta.append(p);
+    body.append(meta);
+
+    const del = document.createElement("button");
+    del.className = "del"; del.type = "button"; del.textContent = "削除";
+    del.setAttribute("aria-label", "「" + t.title + "」を削除");
+    del.onclick = () => {
+      const { id, ...data } = t;
+      run(backend.remove(id));
+      toast("「" + (t.title.length > 16 ? t.title.slice(0, 16) + "…" : t.title) + "」を削除しました", () => run(backend.restore(id, data)));
+    };
+
+    li.append(chk, body, del);
+    return li;
+  }
+
+  /* ---------- toast ---------- */
+  let toastTimer = null, undoFn = null;
+  function toast(msg, undo) {
+    $("toastMsg").textContent = msg;
+    undoFn = undo;
+    $("toastUndo").hidden = !undo;
+    $("toast").hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { $("toast").hidden = true; undoFn = null; }, 6000);
+  }
+  $("toastUndo").onclick = () => { if (undoFn) undoFn(); undoFn = null; $("toast").hidden = true; };
+
+  /* ---------- events ---------- */
+  $("addForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    if (!backend) return;
+    const title = $("newTitle").value.trim();
+    if (!title) return;
+    run(backend.add({ title, due: $("newDue").value || null, priority: $("newPrio").value, done: false, doneAt: null, createdAt: Date.now() }));
+    $("newTitle").value = "";
+    $("newTitle").focus();
+  });
+  $("tabs").addEventListener("click", (e) => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    filter = b.dataset.f;
+    try { localStorage.setItem("yarukoto-filter", filter); } catch (err) {}
+    render();
+  });
+
+  /* ---------- backup ---------- */
+  $("exportBtn").onclick = () => {
+    const blob = new Blob([JSON.stringify({ app: "yarukoto", version: 1, tasks }, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "yarukoto-" + ymd(new Date()) + ".json";
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  };
+  $("importBtn").onclick = () => $("importFile").click();
+  $("importFile").onchange = async (e) => {
+    const f = e.target.files[0];
+    e.target.value = "";
+    if (!f) return;
+    try {
+      const data = JSON.parse(await f.text());
+      const list = Array.isArray(data) ? data : data.tasks;
+      if (!Array.isArray(list)) throw new Error("bad");
+      const clean = list.filter((t) => t && typeof t.title === "string").map((t) => ({
+        id: String(t.id || "t" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)),
+        title: t.title.slice(0, 200), due: t.due || null, priority: ["high", "mid", "low"].includes(t.priority) ? t.priority : "mid",
+        done: !!t.done, doneAt: t.doneAt || null, createdAt: t.createdAt || Date.now(),
+      }));
+      if (!confirm("いまのタスク " + tasks.length + " 件を、バックアップの " + clean.length + " 件で置き換えます。よろしいですか？")) return;
+      await backend.replaceAll(clean);
+    } catch (err) { toast("読み込めませんでした。書き出したJSONファイルを選んでください。", null); }
+  };
+
+  init();
+})();
+</script>
+
+
+<script>
+if ("serviceWorker" in navigator) { window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {})); }
+</script>
+</body></html>
